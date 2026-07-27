@@ -255,9 +255,7 @@ def _process_row_inner(row, batch):
     classifier = EligibilityClassifier()
 
     row.set_stage('EXTRACTING_RECERTIFICATION')
-    row.set_stage('EXTRACTING_NHTD')
     row.set_stage('EXTRACTING_CODE_60')
-    row.set_stage('EXTRACTING_SURPLUS')
 
     classification = classifier.classify(parsed)
 
@@ -281,10 +279,8 @@ def _process_row_inner(row, batch):
             is_medicaid_eligible=response_status in ('ELIGIBLE', 'SUCCESS'),
             has_recertification=classification.get('has_recertification', False),
             recertification_date=classification.get('recertification_date'),
-            has_nhtd=classification.get('has_nhtd', False),
             has_code_60=classification.get('has_code_60', False),
-            has_surplus=classification.get('has_surplus', False),
-            surplus_amount=classification.get('surplus_amount'),
+            has_s1=classification.get('has_s1', False),
             effective_from=parsed.get('coverage_start_date'),
             effective_to=parsed.get('coverage_end_date'),
             is_current=True,

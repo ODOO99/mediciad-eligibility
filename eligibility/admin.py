@@ -17,6 +17,6 @@ class EligibilityResponseAdmin(admin.ModelAdmin):
 
 @admin.register(PatientEligibilitySnapshot)
 class PatientEligibilitySnapshotAdmin(admin.ModelAdmin):
-    list_display = ['patient', 'date_of_service', 'is_medicaid_eligible', 'has_recertification', 'has_nhtd', 'has_code_60', 'has_surplus', 'is_current']
-    list_filter = ['is_medicaid_eligible', 'has_recertification', 'has_nhtd', 'has_code_60', 'has_surplus', 'is_current']
+    list_display = ['patient', 'date_of_service', 'is_medicaid_eligible', 'has_recertification', 'has_code_60', 'has_s1', 'is_current']
+    list_filter = ['is_medicaid_eligible', 'has_recertification', 'has_code_60', 'has_s1', 'is_current']
     search_fields = ['patient__cin']

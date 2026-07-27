@@ -10,8 +10,9 @@ SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
-STATIC_ROOT = '/var/www/medicaid/static/'
-MEDIA_ROOT = '/var/www/medicaid/media/'
+# Keep static/media in project directory (served by nginx via alias)
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 LOGGING = {
     'version': 1,
@@ -22,13 +23,17 @@ LOGGING = {
     'handlers': {
         'file': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': '/var/log/medicaid/django.log',
+            'filename': str(BASE_DIR / 'logs' / 'django.log'),
             'maxBytes': 1024 * 1024 * 50,
             'backupCount': 10,
             'formatter': 'verbose',
         },
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
     },
-    'root': {'handlers': ['file'], 'level': 'WARNING'},
+    'root': {'handlers': ['file', 'console'], 'level': 'WARNING'},
     'loggers': {
         'django': {'handlers': ['file'], 'level': 'WARNING', 'propagate': False},
         'imports': {'handlers': ['file'], 'level': 'INFO', 'propagate': False},

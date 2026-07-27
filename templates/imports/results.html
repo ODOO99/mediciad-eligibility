@@ -107,9 +107,8 @@
             <th class="px-4 py-3 font-medium">Eligibility</th>
             <th class="px-4 py-3 font-medium">Action</th>
             <th class="px-4 py-3 font-medium">Recert</th>
-            <th class="px-4 py-3 font-medium">NHTD</th>
             <th class="px-4 py-3 font-medium">Code 60</th>
-            <th class="px-4 py-3 font-medium">Surplus</th>
+            <th class="px-4 py-3 font-medium">S1</th>
             <th class="px-4 py-3 font-medium">Status</th>
             <th class="px-4 py-3 font-medium">Notes</th>
             <th class="px-4 py-3 font-medium"></th>
@@ -152,9 +151,8 @@
             </td>
             <!-- Indicators from current snapshot -->
             <td class="px-4 py-2 text-center">{% if snap and snap.has_recertification %}<span class="text-green-600 font-bold">✓</span><br><span class="text-xs text-gray-500">{{ snap.recertification_date }}</span>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
-            <td class="px-4 py-2 text-center">{% if snap and snap.has_nhtd %}<span class="text-green-600 font-bold">✓</span>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
             <td class="px-4 py-2 text-center">{% if snap and snap.has_code_60 %}<span class="text-green-600 font-bold">✓</span>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
-            <td class="px-4 py-2 text-center">{% if snap and snap.has_surplus %}<span class="text-green-600 font-bold">✓</span>{% if snap.surplus_amount %}<br><span class="text-xs">${{ snap.surplus_amount }}</span>{% endif %}{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
+            <td class="px-4 py-2 text-center">{% if snap and snap.has_s1 %}<span class="text-green-600 font-bold">✓</span>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
             <td class="px-4 py-2">
               <span class="text-xs px-1.5 py-0.5 rounded
                 {% if row.status == 'COMPLETED' %}bg-green-100 text-green-700

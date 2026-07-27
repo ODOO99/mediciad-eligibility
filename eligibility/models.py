@@ -109,10 +109,10 @@ class PatientEligibilitySnapshot(models.Model):
     is_medicaid_eligible = models.BooleanField(default=False)
     has_recertification = models.BooleanField(default=False, db_index=True)
     recertification_date = models.DateField(null=True, blank=True, db_index=True)
-    has_nhtd = models.BooleanField(default=False, db_index=True)
+    # Code 60 flag
     has_code_60 = models.BooleanField(default=False, db_index=True)
-    has_surplus = models.BooleanField(default=False, db_index=True)
-    surplus_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # S1 flag
+    has_s1 = models.BooleanField(default=False, db_index=True)
     effective_from = models.DateField(null=True, blank=True)
     effective_to = models.DateField(null=True, blank=True)
     is_current = models.BooleanField(default=False, db_index=True)
@@ -123,9 +123,8 @@ class PatientEligibilitySnapshot(models.Model):
             models.Index(fields=['patient', 'date_of_service']),
             models.Index(fields=['patient', 'is_current']),
             models.Index(fields=['has_recertification', 'recertification_date']),
-            models.Index(fields=['has_nhtd']),
             models.Index(fields=['has_code_60']),
-            models.Index(fields=['has_surplus']),
+            models.Index(fields=['has_s1']),
             # Partial index for current snapshots (defined via migration)
         ]
         ordering = ['-date_of_service', '-created_at']
@@ -137,11 +136,8 @@ class PatientEligibilitySnapshot(models.Model):
 class EligibilityIndicator(models.Model):
     INDICATOR_TYPES = [
         ('RECERTIFICATION', 'Recertification'),
-        ('NHTD', 'NHTD'),
-        ('WAIVER_PROGRAM', 'Waiver Program'),
-        ('COVERAGE_CODE', 'Coverage Code'),
         ('CODE_60', 'Code 60'),
-        ('SURPLUS', 'Surplus'),
+        ('S1', 'S1'),
         ('OTHER', 'Other'),
     ]
     eligibility_response = models.ForeignKey(

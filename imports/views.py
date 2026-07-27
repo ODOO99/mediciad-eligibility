@@ -288,9 +288,8 @@ def _build_results_context(batch, request):
         ],
         'indicators_choices': [
             ('recertification', 'Recertification'),
-            ('nhtd', 'NHTD'),
             ('code_60', 'Code 60'),
-            ('surplus', 'Surplus'),
+            ('s1', 'S1'),
         ],
         'status_choices': [
             ('COMPLETED', 'Completed'),

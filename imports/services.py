@@ -35,13 +35,10 @@ def get_batch_progress(batch_id):
             if snap:
                 if snap.has_recertification:
                     indicator_parts.append('Recert')
-                if snap.has_nhtd:
-                    indicator_parts.append('NHTD')
                 if snap.has_code_60:
                     indicator_parts.append('Code 60')
-                if snap.has_surplus:
-                    amount = f' ${snap.surplus_amount:.2f}' if snap.surplus_amount else ''
-                    indicator_parts.append(f'Surplus{amount}')
+                if snap.has_s1:
+                    indicator_parts.append('S1')
 
         recent_activity.append({
             'cin': row.cin,

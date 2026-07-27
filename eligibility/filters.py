@@ -34,16 +34,6 @@ def apply_import_row_filters(queryset, params):
             eligibility_request__response__response_status=eligibility_status
         )
 
-    # Surplus amount
-    if surplus_gt := params.get('surplus_gt', '').strip():
-        try:
-            queryset = queryset.filter(
-                patient__eligibility_snapshots__has_surplus=True,
-                patient__eligibility_snapshots__surplus_amount__gt=float(surplus_gt)
-            ).distinct()
-        except ValueError:
-            pass
-
     # Recertification date range
     if recert_from := params.get('recert_from', '').strip():
         queryset = queryset.filter(
@@ -54,15 +44,14 @@ def apply_import_row_filters(queryset, params):
             patient__eligibility_snapshots__recertification_date__lte=recert_to
         ).distinct()
 
-    # Indicator filters (Recertification, NHTD, Code 60, Surplus)
+    # Indicator filters (Code 60, S1)
     indicators = params.getlist('indicator') if hasattr(params, 'getlist') else []
     match_mode = params.get('match_mode', 'any')  # 'any' or 'all'
 
     indicator_map = {
         'recertification': 'patient__eligibility_snapshots__has_recertification',
-        'nhtd': 'patient__eligibility_snapshots__has_nhtd',
         'code_60': 'patient__eligibility_snapshots__has_code_60',
-        'surplus': 'patient__eligibility_snapshots__has_surplus',
+        's1': 'patient__eligibility_snapshots__has_s1',
     }
 
     if indicators:
@@ -91,10 +80,6 @@ def apply_sorting(queryset, sort_by):
         '-name': '-patient__last_name',
         'recert_date': 'patient__eligibility_snapshots__recertification_date',
         '-recert_date': '-patient__eligibility_snapshots__recertification_date',
-        'surplus': 'patient__eligibility_snapshots__surplus_amount',
-        '-surplus': '-patient__eligibility_snapshots__surplus_amount',
-        'dos': 'eligibility_request__date_of_service',
-        '-dos': '-eligibility_request__date_of_service',
         'row': 'row_number',
         '-row': '-row_number',
     }

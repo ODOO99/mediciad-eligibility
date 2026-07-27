@@ -52,7 +52,7 @@ def _parse_decimal(value_str):
 class EligibilityResponseParser:
     """Parses an X12 271 response string into a structured dict."""
 
-    PARSER_VERSION = '1.0'
+    PARSER_VERSION = '1.1'
 
     def parse(self, x12_text):
         """
@@ -240,6 +240,22 @@ class EligibilityResponseParser:
             if eb03 in ('30', '') and eb05:
                 result['plan_name'] = eb05
 
+        elif eb01 == 'U':
+            # eMedNY uses EB*U (Contact Following Entity) to signal managed care enrollment.
+            # When the plan description contains 'ELIGIBLE', the member IS active/eligible.
+            # This is the primary mechanism eMedNY uses for Managed Care patients.
+            if 'ELIGIBLE' in eb05.upper():
+                result['is_active'] = True
+                result['eligibility_code'] = eb01
+                result['eligibility_status'] = ELIGIBILITY_CODES.get(eb01, eb05 or eb01)
+                if eb03 in ('30', '') and eb05:
+                    result['plan_name'] = eb05
+            elif not result.get('is_active'):
+                # U without ELIGIBLE description — treat as non-active unless
+                # another EB segment already confirmed active
+                result['eligibility_code'] = result['eligibility_code'] or eb01
+                result['eligibility_status'] = result['eligibility_status'] or ELIGIBILITY_CODES.get(eb01, eb01)
+
         elif eb01 in INACTIVE_ELIGIBILITY_CODES:
             if not result.get('is_active'):
                 result['is_active'] = False
@@ -294,6 +310,19 @@ class EligibilityResponseParser:
             normalized = msg_text.strip().upper()
             if normalized and len(normalized) <= 3 and normalized.isalnum():
                 result['mc_exemption_codes'].append(normalized)
+
+            # ─── Code 60 detection from MSG segment ────────────────────────
+            # eMedNY sends MSG*60 to signal Code 60 eligibility category.
+            if normalized == '60':
+                result['msg_code_60'] = True
+                result['msg_code_60_source'] = msg_text
+
+            # ─── S1 detection from MSG segment ─────────────────────────────
+            # eMedNY sends MSG*S1 to signal S1 exemption code.
+            if normalized == 'S1':
+                result['msg_s1'] = True
+                result['msg_s1_source'] = msg_text
+
             # NHTD detection from MSG
             if any(pattern in msg_text.upper() for pattern in ['NHTD', 'NHT&D']):
                 result['nhtd_from_msg'] = True
@@ -414,9 +443,15 @@ class EligibilityResponseParser:
             'mc_exemption_codes': [],
             'mc_exception_provider_ids': [],
             'mc_exception_provider_names': [],
+            # Code 60: set when EB03 == '60' (EB segment)
             'raw_code_60_eb': False,
             'code_60_source_segment': '',
             'code_60_source_element': '',
+            # Code 60 and S1 from MSG segments (eMedNY-specific)
+            'msg_code_60': False,
+            'msg_code_60_source': '',
+            'msg_s1': False,
+            'msg_s1_source': '',
             'nhtd_from_msg': False,
             'nhtd_msg_source': '',
             'surplus_from_msg': False,
@@ -425,5 +460,5 @@ class EligibilityResponseParser:
             'financial_details': [],
             'rejections': [],
             'warnings': warnings or [],
-            'parser_version': '1.0',
+            'parser_version': '1.1',
         }

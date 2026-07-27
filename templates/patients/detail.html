@@ -60,19 +60,14 @@
           {% if current_eligibility.has_recertification %}Yes — {{ current_eligibility.recertification_date }}{% else %}No{% endif %}
         </span>
       </div>
-      <div><span class="text-gray-500">NHTD:</span>
-        <span class="font-medium {% if current_eligibility.has_nhtd %}text-blue-600{% endif %}">
-          {% if current_eligibility.has_nhtd %}Yes{% else %}No{% endif %}
-        </span>
-      </div>
       <div><span class="text-gray-500">Code 60:</span>
         <span class="font-medium {% if current_eligibility.has_code_60 %}text-blue-600{% endif %}">
           {% if current_eligibility.has_code_60 %}Yes{% else %}No{% endif %}
         </span>
       </div>
-      <div><span class="text-gray-500">Surplus:</span>
-        <span class="font-medium {% if current_eligibility.has_surplus %}text-blue-600{% endif %}">
-          {% if current_eligibility.has_surplus %}Yes{% if current_eligibility.surplus_amount %} — ${{ current_eligibility.surplus_amount }}{% endif %}{% else %}No{% endif %}
+      <div><span class="text-gray-500">S1:</span>
+        <span class="font-medium {% if current_eligibility.has_s1 %}text-blue-600{% endif %}">
+          {% if current_eligibility.has_s1 %}Yes{% else %}No{% endif %}
         </span>
       </div>
     </div>
@@ -96,9 +91,8 @@
             <th class="px-3 py-2 font-medium">Date of Service</th>
             <th class="px-3 py-2 font-medium">Status</th>
             <th class="px-3 py-2 font-medium">Recert</th>
-            <th class="px-3 py-2 font-medium">NHTD</th>
             <th class="px-3 py-2 font-medium">Code 60</th>
-            <th class="px-3 py-2 font-medium">Surplus</th>
+            <th class="px-3 py-2 font-medium">S1</th>
             <th class="px-3 py-2 font-medium">Import</th>
             <th class="px-3 py-2 font-medium">271</th>
           </tr>
@@ -115,9 +109,8 @@
               </span>
             </td>
             <td class="px-3 py-2 text-center">{% if snap.has_recertification %}✓{% else %}—{% endif %}</td>
-            <td class="px-3 py-2 text-center">{% if snap.has_nhtd %}✓{% else %}—{% endif %}</td>
             <td class="px-3 py-2 text-center">{% if snap.has_code_60 %}✓{% else %}—{% endif %}</td>
-            <td class="px-3 py-2 text-center">{% if snap.has_surplus %}✓{% if snap.surplus_amount %} ${{ snap.surplus_amount }}{% endif %}{% else %}—{% endif %}</td>
+            <td class="px-3 py-2 text-center">{% if snap.has_s1 %}✓{% else %}—{% endif %}</td>
             <td class="px-3 py-2 text-xs text-gray-500">
               {% if snap.eligibility_response.eligibility_request.import_row.import_batch %}
               {{ snap.eligibility_response.eligibility_request.import_row.import_batch.file_name }}

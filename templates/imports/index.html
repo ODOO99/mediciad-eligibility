@@ -149,10 +149,28 @@ EF11223G</pre>
       </div>
 
       <!-- Progress bar -->
-      <div class="w-full bg-gray-100 rounded-full h-3">
-        <div id="progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width:0%"></div>
+      <div class="w-full bg-gray-100 rounded-full h-4 overflow-hidden relative">
+        <div id="progress-bar"
+          class="h-4 rounded-full transition-all duration-500 relative overflow-hidden"
+          style="width:0%; background: linear-gradient(90deg, #2563eb, #3b82f6)">
+          <!-- animated stripes -->
+          <div id="progress-stripes" class="absolute inset-0 opacity-30" style="
+            background-image: repeating-linear-gradient(
+              -45deg,
+              transparent,
+              transparent 8px,
+              rgba(255,255,255,0.5) 8px,
+              rgba(255,255,255,0.5) 16px
+            );
+            background-size: 32px 100%;
+            animation: stripeScroll 1s linear infinite;
+          "></div>
+        </div>
       </div>
-      <p class="text-sm text-gray-500 text-center" id="progress-label">Initialising…</p>
+      <div class="flex justify-between items-center mt-1">
+        <p class="text-sm text-gray-500" id="progress-label">Initialising…</p>
+        <p class="text-xs text-gray-400" id="progress-eta"></p>
+      </div>
 
       <!-- Counters grid -->
       <div class="grid grid-cols-3 gap-3 text-sm">
@@ -219,6 +237,13 @@ EF11223G</pre>
 </div>
 {% endblock %}
 
+<style>
+@keyframes stripeScroll {
+  0%   { background-position: 0 0; }
+  100% { background-position: 32px 0; }
+}
+</style>
+
 {% block scripts %}
 <script>
 // Stages list for display
@@ -245,6 +270,11 @@ let currentBatchId = null;
 let sseSource = null;
 let pollInterval = null;
 let modalMinimized = false;
+
+// Rate / ETA tracking
+let processedAtStart = 0;
+let trackingStartTime = null;
+let lastProcessed = 0;
 
 const $ = id => document.getElementById(id);
 
@@ -284,6 +314,9 @@ $('import-form').addEventListener('submit', async function(e) {
     }
     currentBatchId = data.batch_id;
     $('view-results-btn').href = `/results/${currentBatchId}/`;
+    processedAtStart = 0;
+    trackingStartTime = Date.now();
+    lastProcessed = 0;
     startProgressTracking(currentBatchId);
   } catch(err) {
     showError('Network error: ' + err.message);
@@ -398,8 +431,56 @@ function updateUI(data) {
 
   // Progress bar
   const pct = data.percentage || 0;
-  $('progress-bar').style.width = pct + '%';
-  $('progress-label').textContent = `Processing ${data.processed_rows || 0} of ${data.valid_rows || 0} patients • ${pct}% complete`;
+  const processed = data.processed_rows || 0;
+  const valid = data.valid_rows || 0;
+  const failed = (data.failed_rows || 0) + (data.rejected_rows || 0);
+  const isTerminal = TERMINAL.has(data.status);
+
+  const bar = $('progress-bar');
+  bar.style.width = pct + '%';
+
+  // Color-code bar based on state
+  if (isTerminal && data.status === 'COMPLETED') {
+    bar.style.background = 'linear-gradient(90deg, #16a34a, #22c55e)';
+    $('progress-stripes') && ($('progress-stripes').style.animation = 'none');
+  } else if (isTerminal && (data.status === 'FAILED' || data.status === 'CANCELLED')) {
+    bar.style.background = 'linear-gradient(90deg, #dc2626, #ef4444)';
+    $('progress-stripes') && ($('progress-stripes').style.animation = 'none');
+  } else if (isTerminal) {
+    bar.style.background = 'linear-gradient(90deg, #d97706, #f59e0b)';
+    $('progress-stripes') && ($('progress-stripes').style.animation = 'none');
+  } else {
+    // Stripe color shifts to orange-warning if failures are high
+    const failRate = valid > 0 ? failed / valid : 0;
+    if (failRate > 0.3) {
+      bar.style.background = 'linear-gradient(90deg, #b45309, #f59e0b)';
+    } else {
+      bar.style.background = 'linear-gradient(90deg, #2563eb, #3b82f6)';
+    }
+  }
+
+  // ETA calculation
+  if (trackingStartTime && processed > lastProcessed && !isTerminal) {
+    const elapsed = (Date.now() - trackingStartTime) / 1000;
+    const rate = processed / elapsed; // rows/sec
+    const remaining = valid - processed;
+    if (rate > 0 && remaining > 0) {
+      const etaSecs = Math.ceil(remaining / rate);
+      const etaMin = Math.floor(etaSecs / 60);
+      const etaSec = etaSecs % 60;
+      setText('progress-eta', etaMin > 0
+        ? `~${etaMin}m ${etaSec}s remaining`
+        : `~${etaSec}s remaining`);
+    } else if (remaining === 0) {
+      setText('progress-eta', '');
+    }
+    lastProcessed = processed;
+  } else if (isTerminal) {
+    setText('progress-eta', '');
+  }
+
+  $('progress-label').textContent = `Processing ${processed} of ${valid} patients • ${pct}% complete`;
+  $('progress-label').className = 'text-sm text-gray-500';
 
   // Current row
   if (data.current_row) {

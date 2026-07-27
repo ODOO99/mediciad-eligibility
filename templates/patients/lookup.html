@@ -136,18 +136,13 @@
           Recertification{% if snap.recertification_date %} — {{ snap.recertification_date }}{% endif %}
         </span>
         {% endif %}
-        {% if snap.has_nhtd %}
-        <span class="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">NHTD</span>
-        {% endif %}
         {% if snap.has_code_60 %}
         <span class="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">Code 60</span>
         {% endif %}
-        {% if snap.has_surplus %}
-        <span class="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-          Surplus{% if snap.surplus_amount %} — ${{ snap.surplus_amount }}{% endif %}
-        </span>
+        {% if snap.has_s1 %}
+        <span class="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">S1</span>
         {% endif %}
-        {% if not snap.has_recertification and not snap.has_nhtd and not snap.has_code_60 and not snap.has_surplus %}
+        {% if not snap.has_recertification and not snap.has_code_60 and not snap.has_s1 %}
         <span class="text-sm text-gray-400">No special indicators</span>
         {% endif %}
       </div>

@@ -108,6 +108,16 @@ CELERY_TASK_SOFT_TIME_LIMIT = 120
 CELERY_TASK_TIME_LIMIT = 180
 CELERY_BEAT_SCHEDULE = {}
 
+# Dedicated queue for medicaid-eligibility tasks.
+# This prevents the shared 'celery' default queue from letting the Medicaid-Back-End
+# Celery worker accidentally consume (and crash on) imports.tasks.* messages.
+CELERY_TASK_DEFAULT_QUEUE = 'eligibility'
+CELERY_TASK_ROUTES = {
+    'imports.tasks.process_import_batch': {'queue': 'eligibility'},
+    'imports.tasks.process_import_row': {'queue': 'eligibility'},
+    'imports.tasks.watch_batch_completion': {'queue': 'eligibility'},
+}
+
 # Cache (used for SSE channel state)
 CACHES = {
     'default': {
