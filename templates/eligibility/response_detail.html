@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}271 Response — {{ request_obj.cin }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="text-sm text-gray-500">
+    <a href="{% url 'imports:index' %}" class="hover:text-blue-600">Import</a> ›
+    <span class="text-gray-800">271 Response</span>
+  </div>
+
+  <!-- Summary card -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h1 class="text-xl font-bold text-gray-900 mb-4">Eligibility Response Detail</h1>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+      <div><span class="text-gray-500">CIN:</span> <span class="font-mono font-medium">{{ request_obj.cin }}</span></div>
+      <div><span class="text-gray-500">Date of Service:</span> <span class="font-medium">{{ request_obj.date_of_service }}</span></div>
+      <div><span class="text-gray-500">Submitted:</span> <span class="font-medium">{{ request_obj.submitted_at|date:"N j, Y g:i A"|default:"—" }}</span></div>
+      <div><span class="text-gray-500">Payload ID:</span> <span class="font-mono text-xs">{{ request_obj.payload_id }}</span></div>
+      <div><span class="text-gray-500">Response Type:</span> <span class="font-medium">{{ response.get_response_type_display }}</span></div>
+      <div><span class="text-gray-500">Response Status:</span>
+        <span class="font-medium {% if response.response_status == 'ELIGIBLE' %}text-green-600
+          {% elif response.response_status == 'MEMBER_NOT_FOUND' %}text-gray-600
+          {% else %}text-red-600{% endif %}">
+          {{ response.get_response_status_display }}
+        </span>
+      </div>
+      <div><span class="text-gray-500">Member Found:</span> <span class="font-medium">{% if response.member_found %}Yes{% else %}No{% endif %}</span></div>
+      <div><span class="text-gray-500">Coverage:</span> <span class="font-medium">{{ response.coverage_start_date|default:"—" }} — {{ response.coverage_end_date|default:"—" }}</span></div>
+      <div><span class="text-gray-500">Plan:</span> <span class="font-medium">{{ response.plan_name|default:"—" }}</span></div>
+      <div><span class="text-gray-500">MCO:</span> <span class="font-medium">{{ response.managed_care_name|default:"—" }}</span></div>
+      <div><span class="text-gray-500">Received:</span> <span class="font-medium">{{ response.received_at|date:"N j, Y g:i A"|default:"—" }}</span></div>
+      <div><span class="text-gray-500">Parser Version:</span> <span class="font-medium">{{ response.parser_version }}</span></div>
+    </div>
+  </div>
+
+  <!-- Indicators -->
+  {% if indicators %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h2 class="font-bold text-gray-800 mb-3">Eligibility Indicators</h2>
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-xs text-gray-500 border-b border-gray-200">
+        <tr>
+          <th class="px-3 py-2 text-left font-medium">Type</th>
+          <th class="px-3 py-2 text-left font-medium">Code</th>
+          <th class="px-3 py-2 text-left font-medium">Value</th>
+          <th class="px-3 py-2 text-left font-medium">Segment</th>
+          <th class="px-3 py-2 text-left font-medium">Element</th>
+          <th class="px-3 py-2 text-left font-medium">Description</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for ind in indicators %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-3 py-2 font-medium">{{ ind.get_indicator_type_display }}</td>
+          <td class="px-3 py-2 font-mono">{{ ind.indicator_code }}</td>
+          <td class="px-3 py-2">{{ ind.indicator_value }}</td>
+          <td class="px-3 py-2 font-mono text-xs">{{ ind.source_segment }}</td>
+          <td class="px-3 py-2 font-mono text-xs">{{ ind.source_element }}</td>
+          <td class="px-3 py-2 text-gray-600">{{ ind.description }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- Rejections -->
+  {% if rejections %}
+  <div class="bg-red-50 rounded-xl border border-red-200 p-6">
+    <h2 class="font-bold text-red-700 mb-3">AAA Rejections</h2>
+    {% for rej in rejections %}
+    <div class="text-sm text-red-800 mb-2">
+      <span class="font-mono font-medium">{{ rej.reject_code }}</span> — {{ rej.description }}
+      {% if rej.follow_up_action_code %}<span class="text-gray-500 ml-2">(Follow-up: {{ rej.follow_up_action_code }})</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Benefits -->
+  {% if benefits %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h2 class="font-bold text-gray-800 mb-3">Benefit Records (EB)</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead class="bg-gray-50 text-gray-500 border-b border-gray-200">
+          <tr>
+            <th class="px-2 py-2 text-left">EB01</th>
+            <th class="px-2 py-2 text-left">Service Type</th>
+            <th class="px-2 py-2 text-left">Description</th>
+            <th class="px-2 py-2 text-left">Amount</th>
+            <th class="px-2 py-2 text-left">Period</th>
+            <th class="px-2 py-2 text-left">Message</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for b in benefits %}
+          <tr>
+            <td class="px-2 py-1.5 font-mono">{{ b.benefit_information_code }}</td>
+            <td class="px-2 py-1.5 font-mono">{{ b.service_type_code }}</td>
+            <td class="px-2 py-1.5">{{ b.plan_coverage_description|default:"—" }}</td>
+            <td class="px-2 py-1.5">{% if b.monetary_amount %}${{ b.monetary_amount }}{% else %}—{% endif %}</td>
+            <td class="px-2 py-1.5">{% if b.start_date %}{{ b.start_date }} — {{ b.end_date|default:"" }}{% else %}—{% endif %}</td>
+            <td class="px-2 py-1.5 text-gray-500">{{ b.message|default:"" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Raw 270 Request -->
+  {% if raw_270_escaped %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-bold text-gray-800">Raw 270 Request</h2>
+      <button onclick="copyRaw('raw270', this)"
+        class="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-400 rounded-lg px-3 py-1.5 transition-colors">
+        <svg id="icon-copy-270" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+        <span id="label-copy-270">Copy</span>
+      </button>
+    </div>
+    <pre id="raw270" class="bg-gray-900 text-blue-300 text-xs p-4 rounded-lg overflow-x-auto max-h-64 whitespace-pre-wrap break-all">{{ raw_270_escaped }}</pre>
+  </div>
+  {% endif %}
+
+  <!-- Raw 271 Response -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-bold text-gray-800">Raw 271 Response</h2>
+      <div class="flex items-center gap-2">
+        <button onclick="copyRaw('raw271', this)"
+          class="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-400 rounded-lg px-3 py-1.5 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+          </svg>
+          <span>Copy</span>
+        </button>
+        <a href="{% url 'eligibility:raw_response' response.id %}"
+           class="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-400 rounded-lg px-3 py-1.5 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+          </svg>
+          Full screen
+        </a>
+      </div>
+    </div>
+    <pre id="raw271" class="bg-gray-900 text-green-400 text-xs p-4 rounded-lg overflow-x-auto max-h-64 whitespace-pre-wrap break-all">{{ raw_271_escaped }}</pre>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyRaw(elementId, btn) {
+  const text = document.getElementById(elementId).innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const label = btn.querySelector('span');
+    const icon = btn.querySelector('svg');
+    label.textContent = 'Copied!';
+    btn.classList.add('text-green-600', 'border-green-400');
+    setTimeout(() => {
+      label.textContent = 'Copy';
+      btn.classList.remove('text-green-600', 'border-green-400');
+    }, 2000);
+  });
+}
+</script>
+{% endblock %}

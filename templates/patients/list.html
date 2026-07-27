@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Patients{% endblock %}
+{% block nav_patients %}font-semibold text-white{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-gray-900">Patients</h1>
+    <a href="{% url 'patients:lookup' %}"
+       class="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+      + Single Lookup
+    </a>
+  </div>
+
+  <!-- Search -->
+  <form method="get" class="flex gap-2">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search by CIN, first name, or last name…"
+      class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm
+             focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <button type="submit"
+      class="bg-gray-800 hover:bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+      Search
+    </button>
+    {% if q %}
+    <a href="{% url 'patients:list' %}"
+       class="text-sm text-gray-500 hover:text-gray-800 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+      Clear
+    </a>
+    {% endif %}
+  </form>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    {% if page_obj.object_list %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr class="text-left text-xs text-gray-500 uppercase tracking-wide">
+            <th class="px-4 py-3 font-medium">CIN</th>
+            <th class="px-4 py-3 font-medium">Name</th>
+            <th class="px-4 py-3 font-medium">DOB</th>
+            <th class="px-4 py-3 font-medium">Eligibility</th>
+            <th class="px-4 py-3 font-medium">Indicators</th>
+            <th class="px-4 py-3 font-medium">Last Checked</th>
+            <th class="px-4 py-3 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for patient in page_obj %}
+          {% with snap=patient.current_eligibility %}
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-4 py-3 font-mono font-medium text-gray-800">{{ patient.cin }}</td>
+            <td class="px-4 py-3">
+              <div class="font-medium text-gray-900">{{ patient.full_name|default:"—" }}</div>
+            </td>
+            <td class="px-4 py-3 text-gray-600">{{ patient.date_of_birth|default:"—" }}</td>
+            <td class="px-4 py-3">
+              {% if snap %}
+                {% if snap.is_medicaid_eligible %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Eligible</span>
+                {% else %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Ineligible</span>
+                {% endif %}
+              {% else %}
+              <span class="text-gray-400 text-xs">No data</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-1">
+                {% if snap.has_recertification %}
+                <span class="px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700">Recert</span>
+                {% endif %}
+                {% if snap.has_nhtd %}
+                <span class="px-1.5 py-0.5 rounded text-xs bg-purple-100 text-purple-700">NHTD</span>
+                {% endif %}
+                {% if snap.has_code_60 %}
+                <span class="px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-700">Code 60</span>
+                {% endif %}
+                {% if snap.has_surplus %}
+                <span class="px-1.5 py-0.5 rounded text-xs bg-yellow-100 text-yellow-700">Surplus</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="px-4 py-3 text-gray-500 text-xs">
+              {% if snap %}{{ snap.date_of_service }}{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <a href="{% url 'patients:detail' patient.id %}"
+                 class="text-blue-600 hover:underline text-xs font-medium">View</a>
+            </td>
+          </tr>
+          {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-600">
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} — {{ page_obj.paginator.count }} patient{{ page_obj.paginator.count|pluralize }}</span>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.previous_page_number }}"
+           class="px-3 py-1 rounded border border-gray-200 hover:border-gray-300 transition-colors">← Prev</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.next_page_number }}"
+           class="px-3 py-1 rounded border border-gray-200 hover:border-gray-300 transition-colors">Next →</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="p-12 text-center text-gray-400">
+      {% if q %}
+      <p class="text-lg font-medium">No patients found for "{{ q }}"</p>
+      <p class="text-sm mt-1"><a href="{% url 'patients:list' %}" class="text-blue-600 hover:underline">Clear search</a></p>
+      {% else %}
+      <p class="text-lg font-medium">No patients yet</p>
+      <p class="text-sm mt-1">Run a <a href="{% url 'patients:lookup' %}" class="text-blue-600 hover:underline">single lookup</a> or <a href="{% url 'imports:index' %}" class="text-blue-600 hover:underline">batch import</a> to get started.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

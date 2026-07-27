@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Import Results — {{ batch.file_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Breadcrumb -->
+  <div class="text-sm text-gray-500">
+    <a href="{% url 'imports:index' %}" class="hover:text-blue-600">Import Eligibility</a>
+    <span class="mx-1">›</span>
+    <span class="text-gray-800">Results</span>
+  </div>
+
+  <!-- Batch Summary -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h1 class="text-xl font-bold text-gray-900">{{ batch.file_name }}</h1>
+        <p class="text-sm text-gray-500 mt-0.5">Imported {{ batch.created_at|date:"N j, Y g:i A" }}</p>
+      </div>
+      <span class="px-3 py-1 rounded-full text-sm font-medium
+        {% if batch.status == 'COMPLETED' %}bg-green-100 text-green-700
+        {% elif batch.status == 'PARTIALLY_COMPLETED' %}bg-yellow-100 text-yellow-700
+        {% elif batch.status == 'PROCESSING' %}bg-blue-100 text-blue-700
+        {% elif batch.status == 'FAILED' %}bg-red-100 text-red-700
+        {% else %}bg-gray-100 text-gray-600{% endif %}">
+        {{ batch.get_status_display }}
+      </span>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+      {% for label, value in batch_stats %}
+      <div class="bg-gray-50 rounded-lg p-3">
+        <div class="text-xs text-gray-500">{{ label }}</div>
+        <div class="font-bold text-gray-800 text-base">{{ value }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      <input name="cin" value="{{ params.cin }}" placeholder="Search CIN…"
+        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <input name="name" value="{{ params.name }}" placeholder="Search patient name…"
+        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <input name="date_of_service" type="date" value="{{ params.date_of_service }}"
+        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+
+    <!-- Indicator toggles -->
+    <div class="flex flex-wrap gap-3 mb-4 text-sm">
+      <span class="text-gray-600 font-medium self-center">Indicators:</span>
+      {% for code, label in indicators_choices %}
+      <label class="flex items-center gap-1.5 cursor-pointer">
+        <input type="checkbox" name="indicator" value="{{ code }}"
+          {% if code in selected_indicators %}checked{% endif %}
+          class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+        {{ label }}
+      </label>
+      {% endfor %}
+      <select name="match_mode" class="border border-gray-300 rounded px-2 py-1 text-xs">
+        <option value="any" {% if params.match_mode != 'all' %}selected{% endif %}>Match Any (OR)</option>
+        <option value="all" {% if params.match_mode == 'all' %}selected{% endif %}>Match All (AND)</option>
+      </select>
+    </div>
+
+    <!-- Row status filters -->
+    <div class="flex flex-wrap gap-2 mb-4 text-xs">
+      {% for val, lbl in status_choices %}
+      <label class="flex items-center gap-1 cursor-pointer border border-gray-200 rounded px-2 py-1 hover:bg-gray-50">
+        <input type="checkbox" name="status" value="{{ val }}"
+          {% if val in selected_statuses %}checked{% endif %}
+          class="rounded border-gray-300 text-blue-600">
+        {{ lbl }}
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit"
+        class="bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-800">
+        Filter
+      </button>
+      <a href="{% url 'imports:results' batch.id %}"
+        class="border border-gray-300 text-gray-600 rounded-lg px-4 py-2 text-sm hover:bg-gray-50">
+        Clear
+      </a>
+      <a href="?{{ request.GET.urlencode }}&export=csv"
+        class="ml-auto border border-green-300 text-green-700 rounded-lg px-4 py-2 text-sm hover:bg-green-50">
+        ↓ Export CSV
+      </a>
+    </div>
+  </form>
+
+  <!-- Results table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr class="text-left text-xs text-gray-500">
+            <th class="px-4 py-3 font-medium">Row</th>
+            <th class="px-4 py-3 font-medium">CIN</th>
+            <th class="px-4 py-3 font-medium">Patient</th>
+            <th class="px-4 py-3 font-medium">DOB</th>
+            <th class="px-4 py-3 font-medium">Eligibility</th>
+            <th class="px-4 py-3 font-medium">Action</th>
+            <th class="px-4 py-3 font-medium">Recert</th>
+            <th class="px-4 py-3 font-medium">NHTD</th>
+            <th class="px-4 py-3 font-medium">Code 60</th>
+            <th class="px-4 py-3 font-medium">Surplus</th>
+            <th class="px-4 py-3 font-medium">Status</th>
+            <th class="px-4 py-3 font-medium">Notes</th>
+            <th class="px-4 py-3 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for row in rows %}
+          {% with snap=row.patient.current_eligibility|default:None %}
+          <tr class="hover:bg-gray-50 {% if row.status == 'TECHNICAL_FAILURE' %}bg-red-50{% elif row.status == 'REJECTED' %}bg-orange-50{% endif %}">
+            <td class="px-4 py-2 text-gray-500">{{ row.row_number }}</td>
+            <td class="px-4 py-2 font-mono font-medium text-gray-800">{{ row.cin }}</td>
+            <td class="px-4 py-2">
+              {% if row.patient %}
+              <a href="{% url 'patients:detail' row.patient.id %}" class="text-blue-600 hover:underline">
+                {{ row.patient.full_name|default:"—" }}
+              </a>
+              {% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-2 text-gray-600">{{ row.patient.date_of_birth|default:"—" }}</td>
+            <td class="px-4 py-2">
+              {% with resp=row.eligibility_request.response %}
+              {% if resp %}
+              <span class="px-1.5 py-0.5 rounded text-xs font-medium
+                {% if resp.response_status == 'ELIGIBLE' %}bg-green-100 text-green-700
+                {% elif resp.response_status == 'MEMBER_NOT_FOUND' %}bg-gray-100 text-gray-600
+                {% elif resp.response_status == 'REJECTED' %}bg-orange-100 text-orange-700
+                {% else %}bg-red-100 text-red-700{% endif %}">
+                {{ resp.get_response_status_display }}
+              </span>
+              {% else %}—{% endif %}
+              {% endwith %}
+            </td>
+            <td class="px-4 py-2">
+              <span class="text-xs {% if row.patient_action == 'CREATED' %}text-green-600
+                {% elif row.patient_action == 'UPDATED' %}text-blue-600
+                {% elif row.patient_action == 'UNCHANGED' %}text-gray-500
+                {% else %}text-gray-400{% endif %}">
+                {{ row.patient_action|default:"—" }}
+              </span>
+            </td>
+            <!-- Indicators from current snapshot -->
+            <td class="px-4 py-2 text-center">{% if snap and snap.has_recertification %}<span class="text-green-600 font-bold">✓</span><br><span class="text-xs text-gray-500">{{ snap.recertification_date }}</span>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
+            <td class="px-4 py-2 text-center">{% if snap and snap.has_nhtd %}<span class="text-green-600 font-bold">✓</span>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
+            <td class="px-4 py-2 text-center">{% if snap and snap.has_code_60 %}<span class="text-green-600 font-bold">✓</span>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
+            <td class="px-4 py-2 text-center">{% if snap and snap.has_surplus %}<span class="text-green-600 font-bold">✓</span>{% if snap.surplus_amount %}<br><span class="text-xs">${{ snap.surplus_amount }}</span>{% endif %}{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
+            <td class="px-4 py-2">
+              <span class="text-xs px-1.5 py-0.5 rounded
+                {% if row.status == 'COMPLETED' %}bg-green-100 text-green-700
+                {% elif row.status == 'REJECTED' %}bg-orange-100 text-orange-700
+                {% elif row.status == 'TECHNICAL_FAILURE' %}bg-red-100 text-red-700
+                {% elif row.status == 'PENDING' or row.status == 'PROCESSING' %}bg-blue-100 text-blue-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                {{ row.get_status_display }}
+              </span>
+            </td>
+            <td class="px-4 py-2 text-xs text-gray-500 max-w-[160px] truncate">
+              {{ row.rejection_description|default:row.processing_error|default:row.validation_error|default:"" }}
+            </td>
+            <td class="px-4 py-2">
+              <div class="flex gap-2 text-xs">
+                {% if row.patient %}
+                <a href="{% url 'patients:detail' row.patient.id %}" class="text-blue-600 hover:underline">Patient</a>
+                {% endif %}
+                {% with resp=row.eligibility_request.response %}
+                {% if resp %}
+                <a href="{% url 'eligibility:response_detail' resp.id %}" class="text-purple-600 hover:underline">271</a>
+                {% endif %}
+                {% endwith %}
+                {% if row.status == 'TECHNICAL_FAILURE' %}
+                <form method="post" action="{% url 'imports:retry' batch.id %}" class="inline">
+                  {% csrf_token %}
+                  <button type="submit" class="text-orange-600 hover:underline">Retry</button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr>
+            <td colspan="13" class="px-4 py-8 text-center text-gray-400">No rows match the current filters.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

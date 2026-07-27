@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Patient — {{ patient.full_name }} ({{ patient.cin }}){% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <div class="text-sm text-gray-500">
+    <a href="{% url 'imports:index' %}" class="hover:text-blue-600">Import Eligibility</a>
+    <span class="mx-1">›</span>
+    <span class="text-gray-800">Patient Detail</span>
+  </div>
+
+  <!-- Patient card -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ patient.full_name|default:"(No Name)" }}</h1>
+        <p class="text-sm text-gray-500 mt-0.5 font-mono">CIN: {{ patient.cin }}</p>
+      </div>
+      <span class="px-3 py-1 rounded-full text-sm font-medium
+        {% if patient.status == 'ACTIVE' %}bg-green-100 text-green-700
+        {% elif patient.status == 'MANUAL_REVIEW' %}bg-yellow-100 text-yellow-700
+        {% else %}bg-gray-100 text-gray-600{% endif %}">
+        {{ patient.get_status_display }}
+      </span>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+      <div><span class="text-gray-500">Date of Birth:</span> <span class="font-medium">{{ patient.date_of_birth|default:"—" }}</span></div>
+      <div><span class="text-gray-500">Gender:</span> <span class="font-medium">{{ patient.get_gender_display|default:"—" }}</span></div>
+      <div><span class="text-gray-500">Created:</span> <span class="font-medium">{{ patient.created_at|date:"N j, Y" }}</span></div>
+      <div class="col-span-2"><span class="text-gray-500">Address:</span>
+        <span class="font-medium">
+          {{ patient.address_line_1 }}{% if patient.address_line_2 %}, {{ patient.address_line_2 }}{% endif %}
+          {% if patient.city %}, {{ patient.city }}, {{ patient.state }} {{ patient.postal_code }}{% endif %}
+        </span>
+      </div>
+      <div><span class="text-gray-500">Last Updated:</span> <span class="font-medium">{{ patient.updated_at|date:"N j, Y g:i A" }}</span></div>
+    </div>
+  </div>
+
+  <!-- Current eligibility -->
+  {% if current_eligibility %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h2 class="font-bold text-gray-800 mb-4">Latest Eligibility Snapshot</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+      <div><span class="text-gray-500">Date of Service:</span> <span class="font-medium">{{ current_eligibility.date_of_service }}</span></div>
+      <div><span class="text-gray-500">Medicaid Eligible:</span>
+        <span class="font-medium {% if current_eligibility.is_medicaid_eligible %}text-green-600{% else %}text-red-600{% endif %}">
+          {% if current_eligibility.is_medicaid_eligible %}Yes{% else %}No{% endif %}
+        </span>
+      </div>
+      <div><span class="text-gray-500">Coverage:</span> <span class="font-medium">{{ current_eligibility.effective_from|default:"—" }} — {{ current_eligibility.effective_to|default:"—" }}</span></div>
+      <div><span class="text-gray-500">Plan:</span> <span class="font-medium">{{ current_eligibility.eligibility_response.plan_name|default:"—" }}</span></div>
+      <div><span class="text-gray-500">MCO:</span> <span class="font-medium">{{ current_eligibility.eligibility_response.managed_care_name|default:"—" }}</span></div>
+
+      <!-- Indicators -->
+      <div><span class="text-gray-500">Recertification:</span>
+        <span class="font-medium {% if current_eligibility.has_recertification %}text-blue-600{% endif %}">
+          {% if current_eligibility.has_recertification %}Yes — {{ current_eligibility.recertification_date }}{% else %}No{% endif %}
+        </span>
+      </div>
+      <div><span class="text-gray-500">NHTD:</span>
+        <span class="font-medium {% if current_eligibility.has_nhtd %}text-blue-600{% endif %}">
+          {% if current_eligibility.has_nhtd %}Yes{% else %}No{% endif %}
+        </span>
+      </div>
+      <div><span class="text-gray-500">Code 60:</span>
+        <span class="font-medium {% if current_eligibility.has_code_60 %}text-blue-600{% endif %}">
+          {% if current_eligibility.has_code_60 %}Yes{% else %}No{% endif %}
+        </span>
+      </div>
+      <div><span class="text-gray-500">Surplus:</span>
+        <span class="font-medium {% if current_eligibility.has_surplus %}text-blue-600{% endif %}">
+          {% if current_eligibility.has_surplus %}Yes{% if current_eligibility.surplus_amount %} — ${{ current_eligibility.surplus_amount }}{% endif %}{% else %}No{% endif %}
+        </span>
+      </div>
+    </div>
+    {% if current_eligibility.eligibility_response %}
+    <div class="mt-4">
+      <a href="{% url 'eligibility:response_detail' current_eligibility.eligibility_response.id %}"
+         class="text-sm text-purple-600 hover:underline">View 271 Response →</a>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Eligibility history -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h2 class="font-bold text-gray-800 mb-4">Eligibility History</h2>
+    {% if history %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr class="text-left text-xs text-gray-500">
+            <th class="px-3 py-2 font-medium">Date of Service</th>
+            <th class="px-3 py-2 font-medium">Status</th>
+            <th class="px-3 py-2 font-medium">Recert</th>
+            <th class="px-3 py-2 font-medium">NHTD</th>
+            <th class="px-3 py-2 font-medium">Code 60</th>
+            <th class="px-3 py-2 font-medium">Surplus</th>
+            <th class="px-3 py-2 font-medium">Import</th>
+            <th class="px-3 py-2 font-medium">271</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for snap in history %}
+          <tr class="hover:bg-gray-50 {% if snap.is_current %}bg-blue-50{% endif %}">
+            <td class="px-3 py-2 font-medium">{{ snap.date_of_service }}</td>
+            <td class="px-3 py-2">
+              <span class="px-1.5 py-0.5 rounded text-xs
+                {% if snap.is_medicaid_eligible %}bg-green-100 text-green-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                {% if snap.is_medicaid_eligible %}Eligible{% else %}Ineligible{% endif %}
+              </span>
+            </td>
+            <td class="px-3 py-2 text-center">{% if snap.has_recertification %}✓{% else %}—{% endif %}</td>
+            <td class="px-3 py-2 text-center">{% if snap.has_nhtd %}✓{% else %}—{% endif %}</td>
+            <td class="px-3 py-2 text-center">{% if snap.has_code_60 %}✓{% else %}—{% endif %}</td>
+            <td class="px-3 py-2 text-center">{% if snap.has_surplus %}✓{% if snap.surplus_amount %} ${{ snap.surplus_amount }}{% endif %}{% else %}—{% endif %}</td>
+            <td class="px-3 py-2 text-xs text-gray-500">
+              {% if snap.eligibility_response.eligibility_request.import_row.import_batch %}
+              {{ snap.eligibility_response.eligibility_request.import_row.import_batch.file_name }}
+              {% else %}—{% endif %}
+            </td>
+            <td class="px-3 py-2">
+              {% if snap.eligibility_response %}
+              <a href="{% url 'eligibility:response_detail' snap.eligibility_response.id %}"
+                 class="text-purple-600 hover:underline text-xs">View</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-gray-400 text-sm">No eligibility history found.</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

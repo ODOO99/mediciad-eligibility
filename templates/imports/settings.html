@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block nav_settings %}font-semibold text-white{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
+
+  <!-- Data summary -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h2 class="font-bold text-gray-800 mb-4">Database Summary</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="text-2xl font-bold text-gray-800">{{ counts.patients }}</div>
+        <div class="text-xs text-gray-500 mt-1">Patients</div>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="text-2xl font-bold text-gray-800">{{ counts.batches }}</div>
+        <div class="text-xs text-gray-500 mt-1">Import Batches</div>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="text-2xl font-bold text-gray-800">{{ counts.rows }}</div>
+        <div class="text-xs text-gray-500 mt-1">Import Rows</div>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4">
+        <div class="text-2xl font-bold text-gray-800">{{ counts.responses }}</div>
+        <div class="text-xs text-gray-500 mt-1">Eligibility Checks</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Danger zone -->
+  <div class="bg-white rounded-xl shadow-sm border border-red-200 p-6">
+    <h2 class="font-bold text-red-700 mb-1">Danger Zone</h2>
+    <p class="text-sm text-gray-500 mb-5">
+      These actions are irreversible. All data will be permanently deleted from the database.
+    </p>
+
+    <div class="border border-red-200 rounded-lg p-4 flex items-center justify-between gap-4">
+      <div>
+        <div class="font-semibold text-gray-800 text-sm">Wipe All Data</div>
+        <div class="text-xs text-gray-500 mt-0.5">
+          Deletes all patients, import batches, eligibility requests and responses.
+        </div>
+      </div>
+      <button onclick="document.getElementById('wipe-modal').classList.remove('hidden')"
+        class="shrink-0 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+        Wipe All Data
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Wipe confirmation modal -->
+<div id="wipe-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+        <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <div>
+        <h3 class="font-bold text-gray-900">Wipe all data?</h3>
+        <p class="text-sm text-gray-500">This cannot be undone.</p>
+      </div>
+    </div>
+
+    <p class="text-sm text-gray-600">
+      This will permanently delete <strong>all patients, import batches, eligibility checks, and responses</strong> from the database.
+    </p>
+
+    <form method="post" action="{% url 'imports:wipe_all_data' %}" id="wipe-form">
+      {% csrf_token %}
+      <label class="block text-sm font-medium text-gray-700 mb-1">
+        Type <span class="font-mono font-bold text-red-600">WIPE</span> to confirm
+      </label>
+      <input type="text" name="confirm" id="wipe-confirm" autocomplete="off"
+        placeholder="WIPE"
+        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono
+               focus:outline-none focus:ring-2 focus:ring-red-500 mb-4">
+      <div class="flex gap-3">
+        <button type="button" onclick="document.getElementById('wipe-modal').classList.add('hidden')"
+          class="flex-1 border border-gray-300 hover:border-gray-400 text-gray-700 text-sm font-medium py-2 rounded-lg transition-colors">
+          Cancel
+        </button>
+        <button type="submit" id="wipe-submit" disabled
+          class="flex-1 bg-red-600 text-white text-sm font-semibold py-2 rounded-lg transition-colors
+                 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-red-700">
+          Wipe All Data
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const input = document.getElementById('wipe-confirm');
+  const btn   = document.getElementById('wipe-submit');
+  input.addEventListener('input', () => {
+    btn.disabled = input.value !== 'WIPE';
+  });
+  // Close on backdrop click
+  document.getElementById('wipe-modal').addEventListener('click', function(e) {
+    if (e.target === this) this.classList.add('hidden');
+  });
+</script>
+{% endblock %}

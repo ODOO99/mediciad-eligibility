@@ -1,0 +1,518 @@
+{% extends "base.html" %}
+{% load imports_extras %}
+{% block title %}Import Eligibility{% endblock %}
+{% block nav_import %}font-semibold text-white{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">Import Eligibility</h1>
+
+  <!-- Upload Form -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+    <form id="import-form" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <!-- CSV File -->
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="csv_file">
+          CSV File <span class="text-red-500">*</span>
+        </label>
+        <input
+          type="file"
+          id="csv_file"
+          name="csv_file"
+          accept=".csv,text/csv"
+          required
+          class="block w-full text-sm text-gray-500
+            file:mr-4 file:py-2 file:px-4
+            file:rounded-lg file:border-0
+            file:text-sm file:font-semibold
+            file:bg-blue-50 file:text-blue-700
+            hover:file:bg-blue-100
+            border border-gray-300 rounded-lg cursor-pointer"
+        >
+      </div>
+
+      <!-- Date of Service -->
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="date_of_service">
+          Date of Service <span class="text-red-500">*</span>
+        </label>
+        <input
+          type="date"
+          id="date_of_service"
+          name="date_of_service"
+          required
+          class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+        <p class="mt-1 text-xs text-gray-500">Applied to every row in the CSV.</p>
+      </div>
+
+      <!-- Submit -->
+      <button
+        type="submit"
+        id="import-btn"
+        disabled
+        class="w-full bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg
+          hover:bg-blue-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Import Eligibility
+      </button>
+    </form>
+  </div>
+
+  <!-- Format instructions -->
+  <div class="bg-gray-50 rounded-xl border border-gray-200 p-5 mb-6">
+    <h2 class="text-sm font-semibold text-gray-700 mb-3">CSV Format</h2>
+    <p class="text-sm text-gray-600 mb-3">The file must contain a <code class="bg-gray-200 px-1 rounded text-xs">cin</code> column header. CINs are treated as text (leading zeroes preserved).</p>
+    <pre class="bg-white border border-gray-200 rounded p-3 text-xs font-mono text-gray-700">cin
+AB12345C
+CD67890D
+EF11223G</pre>
+    <a href="{% url 'imports:sample_csv' %}"
+       class="inline-block mt-3 text-sm text-blue-600 hover:underline">
+      ↓ Download sample CSV
+    </a>
+  </div>
+
+  <!-- Recent imports -->
+  {% if recent_batches %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+    <h2 class="text-sm font-semibold text-gray-700 mb-3">Recent Imports</h2>
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-gray-500 border-b border-gray-100">
+          <th class="pb-2">File</th>
+          <th class="pb-2">Date of Service</th>
+          <th class="pb-2">Status</th>
+          <th class="pb-2">Rows</th>
+          <th class="pb-2"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for batch in recent_batches %}
+        <tr class="hover:bg-gray-50">
+          <td class="py-2 text-gray-800 truncate max-w-[160px]">{{ batch.file_name }}</td>
+          <td class="py-2 text-gray-600">{{ batch.date_of_service }}</td>
+          <td class="py-2">
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium
+              {% if batch.status == 'COMPLETED' %}bg-green-100 text-green-700
+              {% elif batch.status == 'PARTIALLY_COMPLETED' %}bg-yellow-100 text-yellow-700
+              {% elif batch.status == 'PROCESSING' %}bg-blue-100 text-blue-700
+              {% elif batch.status == 'FAILED' %}bg-red-100 text-red-700
+              {% else %}bg-gray-100 text-gray-600{% endif %}">
+              {{ batch.get_status_display }}
+            </span>
+          </td>
+          <td class="py-2 text-gray-600">{{ batch.total_rows }}</td>
+          <td class="py-2 text-right">
+            <a href="{% url 'imports:results' batch.id %}"
+               class="text-blue-600 hover:underline text-xs">Results →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Progress Popup (Modal) -->
+<div id="progress-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+  <!-- Backdrop -->
+  <div class="absolute inset-0 bg-black/50"></div>
+  <!-- Modal -->
+  <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden">
+    <!-- Header -->
+    <div class="bg-blue-700 text-white px-6 py-4 flex items-center justify-between">
+      <h2 class="font-bold text-lg" id="modal-title">Importing Eligibility Information</h2>
+      <div class="flex gap-2">
+        <button id="minimize-btn" title="Minimize"
+          class="text-blue-200 hover:text-white text-xs border border-blue-500 rounded px-2 py-1">
+          Minimize
+        </button>
+        <button id="close-modal-btn" title="Close (import continues in background)"
+          class="text-blue-200 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div id="modal-body" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+
+      <!-- File / batch info -->
+      <div class="grid grid-cols-2 gap-4 text-sm text-gray-700">
+        <div><span class="font-medium">File:</span> <span id="p-filename" class="text-gray-600">—</span></div>
+        <div><span class="font-medium">Date of Service:</span> <span id="p-dos" class="text-gray-600">—</span></div>
+        <div><span class="font-medium">Status:</span> <span id="p-status" class="text-gray-600">—</span></div>
+        <div><span class="font-medium">Progress:</span> <span id="p-pct" class="text-gray-600">0%</span></div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="w-full bg-gray-100 rounded-full h-3">
+        <div id="progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width:0%"></div>
+      </div>
+      <p class="text-sm text-gray-500 text-center" id="progress-label">Initialising…</p>
+
+      <!-- Counters grid -->
+      <div class="grid grid-cols-3 gap-3 text-sm">
+        {% for item in "Total:p-total,Valid:p-valid,Invalid:p-invalid,Duplicate:p-dup,Processed:p-proc,Remaining:p-remain,Created:p-created,Updated:p-updated,Unchanged:p-unchanged,Rejected:p-rejected,Failed:p-failed,Cancelled:p-cancelled"|split:"," %}
+        {% with parts=item|cut:" "|split:":" %}
+        <div class="bg-gray-50 rounded-lg p-2 text-center">
+          <div class="text-xs text-gray-500">{{ parts.0 }}</div>
+          <div class="font-bold text-gray-800" id="{{ parts.1 }}">—</div>
+        </div>
+        {% endwith %}
+        {% endfor %}
+      </div>
+
+      <!-- Current row -->
+      <div class="bg-blue-50 rounded-lg p-4 text-sm" id="current-row-box">
+        <div class="font-semibold text-blue-700 mb-2">Current Row</div>
+        <div class="grid grid-cols-2 gap-2 text-gray-700">
+          <div>CIN: <span class="font-mono font-medium" id="p-cin">—</span></div>
+          <div>Row #: <span id="p-rownum">—</span></div>
+        </div>
+        <div class="mt-2 text-blue-600" id="p-stage">—</div>
+      </div>
+
+      <!-- Processing stages -->
+      <div id="stages-list" class="text-xs space-y-1">
+        {% for code, label in stages %}
+        <div id="stage-{{ code }}" class="flex items-center gap-2 text-gray-400">
+          <span class="stage-icon">○</span>
+          <span>{{ label }}</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Recent activity -->
+      <div>
+        <div class="font-semibold text-sm text-gray-700 mb-2">Recent Activity</div>
+        <div id="activity-list" class="space-y-1 text-xs max-h-48 overflow-y-auto">
+          <p class="text-gray-400 italic">Processing will begin shortly…</p>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="flex gap-3 pt-2" id="modal-controls">
+        <button id="cancel-import-btn"
+          class="text-sm text-red-600 hover:text-red-700 border border-red-200 rounded px-3 py-1.5">
+          Cancel Remaining Rows
+        </button>
+      </div>
+
+      <!-- Completion panel (hidden until done) -->
+      <div id="completion-panel" class="hidden bg-green-50 rounded-xl p-4 border border-green-200">
+        <h3 id="completion-title" class="font-bold text-green-700 text-base mb-3">Import Completed</h3>
+        <div id="completion-stats" class="text-sm text-gray-700 space-y-1"></div>
+        <div class="flex gap-3 mt-4 flex-wrap">
+          <a id="view-results-btn" href="#" class="bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-800">View Results</a>
+          <a href="{% url 'imports:index' %}" class="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 text-sm hover:bg-gray-50">Import Another File</a>
+          <button id="retry-btn" class="hidden border border-orange-300 text-orange-700 rounded-lg px-4 py-2 text-sm hover:bg-orange-50">Retry Failed Rows</button>
+          <button id="close-completion-btn" class="text-gray-500 text-sm hover:underline">Close</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Stages list for display
+const STAGES = [
+  ['READING_CSV_ROW','Reading CSV row'],
+  ['GENERATING_270','Generating 270 request'],
+  ['SAVING_270','Saving 270'],
+  ['SENDING_TO_EMEDNY','Sending to eMedNY'],
+  ['WAITING_FOR_EMEDNY','Waiting for eMedNY response'],
+  ['RECEIVING_271','Receiving 271 response'],
+  ['SAVING_RAW_RESPONSE','Saving raw response'],
+  ['PARSING_271','Parsing 271 response'],
+  ['EXTRACTING_PATIENT','Extracting patient information'],
+  ['UPDATING_PATIENT','Creating or updating patient'],
+  ['EXTRACTING_RECERTIFICATION','Extracting Recertification'],
+  ['EXTRACTING_NHTD','Extracting NHTD'],
+  ['EXTRACTING_CODE_60','Extracting Code 60'],
+  ['EXTRACTING_SURPLUS','Extracting Surplus'],
+  ['SAVING_ELIGIBILITY','Saving eligibility information'],
+  ['COMPLETING_ROW','Completing row'],
+];
+
+let currentBatchId = null;
+let sseSource = null;
+let pollInterval = null;
+let modalMinimized = false;
+
+const $ = id => document.getElementById(id);
+
+// Enable button when form is valid
+function checkFormReady() {
+  const file = $('csv_file').files.length > 0;
+  const dos = $('date_of_service').value.trim() !== '';
+  $('import-btn').disabled = !(file && dos);
+}
+$('csv_file').addEventListener('change', checkFormReady);
+$('date_of_service').addEventListener('change', checkFormReady);
+
+// Form submission
+$('import-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  $('import-btn').disabled = true;
+  openModal();
+
+  const fd = new FormData(this);
+  try {
+    const resp = await fetch("{% url 'imports:upload' %}", {
+      method: 'POST',
+      body: fd,
+      headers: { 'X-CSRFToken': fd.get('csrfmiddlewaretoken') },
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      showError(`Server error ${resp.status}: ${text.substring(0, 200)}`);
+      $('import-btn').disabled = false;
+      return;
+    }
+    const data = await resp.json();
+    if (!data.success) {
+      showError(data.errors ? data.errors.join('\n') : 'Upload failed.');
+      $('import-btn').disabled = false;
+      return;
+    }
+    currentBatchId = data.batch_id;
+    $('view-results-btn').href = `/results/${currentBatchId}/`;
+    startProgressTracking(currentBatchId);
+  } catch(err) {
+    showError('Network error: ' + err.message);
+    $('import-btn').disabled = false;
+  }
+});
+
+function openModal() {
+  $('progress-modal').classList.remove('hidden');
+  $('completion-panel').classList.add('hidden');
+  $('modal-controls').classList.remove('hidden');
+}
+
+$('close-modal-btn').addEventListener('click', () => {
+  $('progress-modal').classList.add('hidden');
+});
+$('close-completion-btn').addEventListener('click', () => {
+  $('progress-modal').classList.add('hidden');
+});
+$('minimize-btn').addEventListener('click', () => {
+  const body = $('modal-body');
+  if (modalMinimized) { body.classList.remove('hidden'); $('minimize-btn').textContent = 'Minimize'; }
+  else { body.classList.add('hidden'); $('minimize-btn').textContent = 'Restore'; }
+  modalMinimized = !modalMinimized;
+});
+
+$('cancel-import-btn').addEventListener('click', async () => {
+  if (!currentBatchId) return;
+  if (!confirm('Cancel remaining rows? Completed rows will be preserved.')) return;
+  try {
+    const resp = await fetch(`/cancel/${currentBatchId}/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCsrf() },
+    });
+    if (!resp.ok) { alert(`Cancel failed: HTTP ${resp.status}`); return; }
+    const d = await resp.json();
+    if (d.success) alert(`Cancelled ${d.cancelled_rows} rows.`);
+  } catch(err) { alert('Cancel request failed: ' + err.message); }
+});
+
+$('retry-btn').addEventListener('click', async () => {
+  if (!currentBatchId) return;
+  try {
+    const resp = await fetch(`/retry/${currentBatchId}/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCsrf() },
+    });
+    if (!resp.ok) { alert(`Retry failed: HTTP ${resp.status}`); return; }
+    const d = await resp.json();
+    if (d.success) {
+      $('retry-btn').classList.add('hidden');
+      startProgressTracking(currentBatchId);
+      $('completion-panel').classList.add('hidden');
+      openModal();
+    }
+  } catch(err) { alert('Retry request failed: ' + err.message); }
+});
+
+function getCsrf() {
+  return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+function startProgressTracking(batchId) {
+  stopTracking();
+  if (typeof EventSource !== 'undefined') {
+    sseSource = new EventSource(`/progress/${batchId}/sse/`);
+    sseSource.onmessage = e => updateUI(JSON.parse(e.data));
+    sseSource.onerror = () => {
+      stopTracking();
+      startPolling(batchId);
+    };
+  } else {
+    startPolling(batchId);
+  }
+}
+
+function startPolling(batchId) {
+  pollInterval = setInterval(async () => {
+    try {
+      const r = await fetch(`/progress/${batchId}/poll/`);
+      const d = await r.json();
+      updateUI(d);
+    } catch(_) {}
+  }, 2000);
+}
+
+function stopTracking() {
+  if (sseSource) { sseSource.close(); sseSource = null; }
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+}
+
+const TERMINAL = new Set(['COMPLETED','PARTIALLY_COMPLETED','FAILED','CANCELLED']);
+
+function updateUI(data) {
+  // Basic info
+  setText('p-filename', data.file_name || '—');
+  setText('p-dos', data.date_of_service || '—');
+  setText('p-status', data.status || '—');
+  setText('p-pct', (data.percentage || 0) + '%');
+  setText('p-total', data.total_rows ?? '—');
+  setText('p-valid', data.valid_rows ?? '—');
+  setText('p-invalid', data.invalid_rows ?? '—');
+  setText('p-dup', data.duplicate_rows ?? '—');
+  setText('p-proc', data.processed_rows ?? '—');
+  setText('p-remain', data.remaining_rows ?? '—');
+  setText('p-created', data.created_patients ?? '—');
+  setText('p-updated', data.updated_patients ?? '—');
+  setText('p-unchanged', data.unchanged_patients ?? '—');
+  setText('p-rejected', data.rejected_rows ?? '—');
+  setText('p-failed', data.failed_rows ?? '—');
+  setText('p-cancelled', data.cancelled_rows ?? '—');
+
+  // Progress bar
+  const pct = data.percentage || 0;
+  $('progress-bar').style.width = pct + '%';
+  $('progress-label').textContent = `Processing ${data.processed_rows || 0} of ${data.valid_rows || 0} patients • ${pct}% complete`;
+
+  // Current row
+  if (data.current_row) {
+    const cr = data.current_row;
+    setText('p-cin', cr.cin || '—');
+    setText('p-rownum', cr.row_number || '—');
+    setText('p-stage', stageLabel(cr.processing_stage));
+    updateStages(cr.processing_stage);
+  }
+
+  // Activity list
+  if (data.recent_activity && data.recent_activity.length) {
+    const list = $('activity-list');
+    list.innerHTML = '';
+    data.recent_activity.forEach(a => {
+      const div = document.createElement('div');
+      div.className = 'flex items-start gap-2 py-0.5';
+      const isOk = ['COMPLETED'].includes(a.status);
+      const icon = isOk ? '✓' : '✗';
+      const color = isOk ? 'text-green-600' : 'text-red-500';
+      let desc = a.patient_action || a.status;
+      if (a.indicators && a.indicators.length) desc += ' — ' + a.indicators.join(', ');
+      if (a.error) desc = a.error;
+      div.innerHTML = `<span class="${color} font-bold">${icon}</span>
+        <span class="font-mono text-gray-700">${esc(a.cin)}</span>
+        <span class="text-gray-500">${esc(desc)}</span>`;
+      list.prepend(div);
+    });
+  }
+
+  // Terminal state
+  if (TERMINAL.has(data.status)) {
+    stopTracking();
+    showCompletion(data);
+  }
+}
+
+function showCompletion(data) {
+  const failed = data.failed_rows || 0;
+  const rejected = data.rejected_rows || 0;
+  const isPartial = data.status === 'PARTIALLY_COMPLETED';
+
+  $('completion-title').textContent = isPartial ? 'Partially Completed' : 'Import Completed';
+  $('completion-title').className = isPartial
+    ? 'font-bold text-yellow-700 text-base mb-3'
+    : 'font-bold text-green-700 text-base mb-3';
+
+  const stats = [
+    ['Total rows', data.total_rows],
+    ['Processed', data.processed_rows],
+    ['Invalid', data.invalid_rows],
+    ['Duplicates', data.duplicate_rows],
+    ['Patients created', data.created_patients],
+    ['Patients updated', data.updated_patients],
+    ['Patients unchanged', data.unchanged_patients],
+    ['Rejected', rejected],
+    ['Technical failures', failed],
+  ];
+  $('completion-stats').innerHTML = stats
+    .map(([k,v]) => `<div class="flex justify-between"><span>${esc(k)}</span><span class="font-semibold">${v ?? '—'}</span></div>`)
+    .join('');
+
+  if (failed > 0) $('retry-btn').classList.remove('hidden');
+
+  $('completion-panel').classList.remove('hidden');
+  $('modal-controls').classList.add('hidden');
+  $('view-results-btn').href = `/results/${currentBatchId}/`;
+}
+
+function updateStages(activeStage) {
+  const stageOrder = STAGES.map(s => s[0]);
+  const activeIdx = stageOrder.indexOf(activeStage);
+  STAGES.forEach(([code, _], i) => {
+    const el = $('stage-' + code);
+    if (!el) return;
+    const icon = el.querySelector('.stage-icon');
+    if (i < activeIdx) {
+      el.className = 'flex items-center gap-2 text-green-600';
+      icon.textContent = '✓';
+    } else if (i === activeIdx) {
+      el.className = 'flex items-center gap-2 text-blue-600 font-semibold';
+      icon.textContent = '▶';
+    } else {
+      el.className = 'flex items-center gap-2 text-gray-300';
+      icon.textContent = '○';
+    }
+  });
+}
+
+function stageLabel(code) {
+  const s = STAGES.find(s => s[0] === code);
+  return s ? s[1] : code || '—';
+}
+
+function setText(id, val) { const el = $(id); if (el) el.textContent = val; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showError(msg) {
+  $('progress-label').textContent = 'Error: ' + msg;
+  $('progress-label').className = 'text-sm text-red-600 text-center';
+}
+
+// Build stages DOM on load
+(function buildStages() {
+  const list = $('stages-list');
+  if (!list) return;
+  list.innerHTML = '';
+  STAGES.forEach(([code, label]) => {
+    const div = document.createElement('div');
+    div.id = 'stage-' + code;
+    div.className = 'flex items-center gap-2 text-gray-300';
+    div.innerHTML = `<span class="stage-icon">○</span><span>${label}</span>`;
+    list.appendChild(div);
+  });
+})();
+</script>
+{% endblock %}

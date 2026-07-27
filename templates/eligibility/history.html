@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Eligibility History{% endblock %}
+{% block nav_history %}font-semibold text-white{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <h1 class="text-2xl font-bold text-gray-900">Eligibility History</h1>
+
+  <!-- Filters -->
+  <form method="get" class="flex gap-2 flex-wrap">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search CIN or name…"
+      class="flex-1 min-w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm
+             focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <select name="status"
+      class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white
+             focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <option value="">All statuses</option>
+      {% for val, label in status_choices %}
+      <option value="{{ val }}" {% if val == selected_status %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit"
+      class="bg-gray-800 hover:bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+      Filter
+    </button>
+    {% if q or selected_status %}
+    <a href="{% url 'eligibility:history' %}"
+       class="text-sm text-gray-500 hover:text-gray-800 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+      Clear
+    </a>
+    {% endif %}
+  </form>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    {% if page_obj.object_list %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr class="text-left text-xs text-gray-500 uppercase tracking-wide">
+            <th class="px-4 py-3 font-medium">CIN</th>
+            <th class="px-4 py-3 font-medium">Patient</th>
+            <th class="px-4 py-3 font-medium">Date of Service</th>
+            <th class="px-4 py-3 font-medium">Status</th>
+            <th class="px-4 py-3 font-medium">Plan / MCO</th>
+            <th class="px-4 py-3 font-medium">Source</th>
+            <th class="px-4 py-3 font-medium">Checked</th>
+            <th class="px-4 py-3 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for resp in page_obj %}
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-4 py-3 font-mono font-medium text-gray-800">
+              {{ resp.eligibility_request.cin }}
+            </td>
+            <td class="px-4 py-3">
+              {% if resp.patient %}
+              <a href="{% url 'patients:detail' resp.patient.id %}"
+                 class="text-blue-600 hover:underline">{{ resp.patient.full_name|default:resp.patient.cin }}</a>
+              {% else %}
+              <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-gray-600">
+              {{ resp.eligibility_request.date_of_service }}
+            </td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                {% if resp.response_status == 'ELIGIBLE' %}bg-green-100 text-green-700
+                {% elif resp.response_status == 'INELIGIBLE' %}bg-red-100 text-red-700
+                {% elif resp.response_status == 'MEMBER_NOT_FOUND' %}bg-yellow-100 text-yellow-700
+                {% elif resp.response_status == 'REJECTED' %}bg-orange-100 text-orange-700
+                {% elif resp.response_status == 'TECHNICAL_FAILURE' %}bg-red-100 text-red-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                {{ resp.get_response_status_display }}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-gray-600 text-xs">
+              {{ resp.plan_name|default:"" }}
+              {% if resp.managed_care_name %}<span class="text-gray-400">/ {{ resp.managed_care_name }}</span>{% endif %}
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-500">
+              {% if resp.eligibility_request.import_row %}
+                <span class="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded">Batch</span>
+              {% else %}
+                <span class="px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded">Lookup</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-400">
+              {{ resp.created_at|date:"M j, Y g:i A" }}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <a href="{% url 'eligibility:response_detail' resp.id %}"
+                 class="text-blue-600 hover:underline text-xs font-medium">View</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-600">
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} — {{ page_obj.paginator.count }} check{{ page_obj.paginator.count|pluralize }}</span>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}page={{ page_obj.previous_page_number }}"
+           class="px-3 py-1 rounded border border-gray-200 hover:border-gray-300 transition-colors">← Prev</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <a href="?{% if q %}q={{ q }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}page={{ page_obj.next_page_number }}"
+           class="px-3 py-1 rounded border border-gray-200 hover:border-gray-300 transition-colors">Next →</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="p-12 text-center text-gray-400">
+      {% if q or selected_status %}
+      <p class="text-lg font-medium">No results for your filters</p>
+      <p class="text-sm mt-1"><a href="{% url 'eligibility:history' %}" class="text-blue-600 hover:underline">Clear filters</a></p>
+      {% else %}
+      <p class="text-lg font-medium">No eligibility checks yet</p>
+      <p class="text-sm mt-1">Run a <a href="{% url 'patients:lookup' %}" class="text-blue-600 hover:underline">single lookup</a> or <a href="{% url 'imports:index' %}" class="text-blue-600 hover:underline">batch import</a>.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
