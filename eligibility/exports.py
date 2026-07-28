@@ -2,7 +2,8 @@
 import csv
 import re
 from django.http import StreamingHttpResponse
-
+from django.db.models import Prefetch
+from eligibility.models import PatientEligibilitySnapshot
 
 DANGEROUS_PREFIXES = ('=', '+', '-', '@')
 
@@ -34,13 +35,23 @@ def export_import_rows_csv(queryset):
             'Eligibility Status', 'Eligibility', 'Recertification', 'Recertification Date', 'Code 60', 'S1',
             'Patient Action', 'Row Status', 'Error/Rejection',
         ])
-        for row in queryset.select_related(
+        # Prefetch current snapshots to avoid N+1 queries during CSV generation
+        qs = queryset.select_related(
             'patient',
             'eligibility_request__response__snapshot',
-        ):
+        ).prefetch_related(
+            Prefetch(
+                'patient__eligibility_snapshots',
+                queryset=PatientEligibilitySnapshot.objects.filter(is_current=True),
+                to_attr='prefetched_current_snapshots'
+            )
+        )
+
+        for row in qs:
             snap = None
             if row.patient:
-                snap = row.patient.eligibility_snapshots.filter(is_current=True).first()
+                current_snaps = row.patient.prefetched_current_snapshots
+                snap = current_snaps[0] if current_snaps else None
             req = getattr(row, 'eligibility_request', None)
             resp = getattr(req, 'response', None) if req else None
 
@@ -52,7 +63,7 @@ def export_import_rows_csv(queryset):
             code_60 = ''
             s1 = ''
             if snap:
-                eligibility = snap.eligibility or ''
+                eligibility = 'Eligible' if snap.is_medicaid_eligible else 'Not Eligible'
                 recert = 'Yes' if snap.has_recertification else 'No'
                 recert_date = snap.recertification_date or ''
                 code_60 = 'Yes' if snap.has_code_60 else 'No'
